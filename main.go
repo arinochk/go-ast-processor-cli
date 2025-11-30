@@ -70,7 +70,6 @@ func run() {
 					node.FuncInfo.PkgPath,
 					node.FuncInfo.Name)
 
-				// Добавляем информацию о файле, если есть
 				if node.FuncInfo.FileName != "" {
 					callerInfo += fmt.Sprintf(" (file: %s", node.FuncInfo.FileName)
 					if node.FuncInfo.Line > 0 {

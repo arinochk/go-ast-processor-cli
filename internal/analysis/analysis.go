@@ -68,13 +68,11 @@ func (analyzer *VTAAnalyzer) Analyze() (*AnalyzerResult, error) {
 	slog.Info("Using Variable Type Analysis (VTA)")
 	cg := vta.CallGraph(ssautil.AllFunctions(prog), cha.CallGraph(prog))
 	slog.Info("VTA completed successfully")
-	// Получаем путь модуля
 	modulePath, err := GetModulePath(analyzer.Config.Dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get module path: %w", err)
 	}
 
-	// Фильтруем функции проекта
 	filteredCg := filterProjectFunctions(cg, modulePath)
 
 	duration := time.Since(startTime)
@@ -106,13 +104,11 @@ func (analyzer *CHAAnalyzer) Analyze() (*AnalyzerResult, error) {
 
 	slog.Info("Using Class Hierarchy Analysis (CHA)")
 	cg := cha.CallGraph(prog)
-	// Получаем путь модуля
 	modulePath, err := GetModulePath(analyzer.Config.Dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get module path: %w", err)
 	}
 
-	// Фильтруем функции проекта
 	filteredCg := filterProjectFunctions(cg, modulePath)
 
 	duration := time.Since(startTime)
