@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"go-ast-processor-cli/internal/analysis"
 	"go-ast-processor-cli/internal/fileproc"
 	"go-ast-processor-cli/internal/models"
 	"golang.org/x/tools/go/packages"
@@ -14,6 +15,7 @@ import (
 
 type InputProcessor interface {
 	ProcessAnalysisConfInput() (*models.AppConfig, error)
+	ProcessAnalysisTypeInput() (analysis.AnalysisType, error)
 	ProcessTargetFunctionInput() (string, string, string, int, error)
 }
 
@@ -59,6 +61,34 @@ func (c *cliProcessor) ProcessAnalysisConfInput() (*models.AppConfig, error) {
 			Mode: packages.LoadAllSyntax,
 		},
 	}, nil
+}
+
+func (c *cliProcessor) ProcessAnalysisTypeInput() (analysis.AnalysisType, error) {
+	reader := bufio.NewReader(os.Stdin)
+	slog.Info("Enter the analysis type (0 - VTA (recommended), 1 - CHA):")
+	typeStr, err := reader.ReadString('\n')
+	if err != nil {
+		slog.Error("error scanning function line:", err)
+		return 0, fmt.Errorf("error scanning function line: %w", err)
+	}
+	typeStr = strings.TrimSpace(typeStr)
+	if typeStr == "" {
+		slog.Error("no function function line provided")
+		return 0, fmt.Errorf("no function function line provided")
+	}
+	mode, err := strconv.Atoi(typeStr)
+	if err != nil {
+		slog.Error("error parsing function line:", err)
+		return 0, fmt.Errorf("error parsing function line: %w", err)
+	}
+	switch mode {
+	case 0:
+		return analysis.VTA, nil
+	case 1:
+		return analysis.CHA, nil
+	default:
+		return 0, fmt.Errorf("invalid function line mode: %d", mode)
+	}
 }
 
 func (c *cliProcessor) ProcessTargetFunctionInput() (string, string, string, int, error) {

@@ -21,6 +21,7 @@ type AnalysisType int
 
 const (
 	VTA AnalysisType = iota
+	CHA
 )
 
 type AnalyzerResult struct {
@@ -31,58 +32,44 @@ type AnalyzerResult struct {
 	Duration     time.Duration
 }
 
-type AstParser interface {
-	Parse() (*AnalyzerResult, error)
+type AstAnalyzer interface {
+	Analyze() (*AnalyzerResult, error)
 }
 
-func NewAstParser(config *packages.Config, analysisType AnalysisType) AstParser {
-	return &universalParser{
-		Config:       config,
-		AnalysisType: analysisType,
+func NewAstAnalyzer(config *packages.Config, analysisType AnalysisType) AstAnalyzer {
+	switch analysisType {
+	case VTA:
+		return &VTAAnalyzer{config, analysisType}
+	case CHA:
+		return &CHAAnalyzer{config, analysisType}
+	default:
+		return &CHAAnalyzer{config, analysisType}
 	}
 }
 
-type universalParser struct {
+type CHAAnalyzer struct {
 	Config       *packages.Config
 	AnalysisType AnalysisType
 }
 
-func (parser *universalParser) Parse() (*AnalyzerResult, error) {
+type VTAAnalyzer struct {
+	Config       *packages.Config
+	AnalysisType AnalysisType
+}
+
+func (analyzer *VTAAnalyzer) Analyze() (*AnalyzerResult, error) {
 	startTime := time.Now()
 
-	slog.Info("Loading packages", "dir", parser.Config.Dir)
-	pkgs, err := packages.Load(parser.Config, "./...")
+	prog, err := getSSAProgram(analyzer.Config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load packages: %w", err)
+		slog.Error("Failed to build SSA program", "error", err)
+		return nil, fmt.Errorf("could not build ssa program: %w", err)
 	}
-
-	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("no packages found in directory: %s", parser.Config.Dir)
-	}
-
-	slog.Info("Packages loaded", "count", len(pkgs))
-
-	// Строим SSA
-	prog, _ := ssautil.AllPackages(pkgs, ssa.SanityCheckFunctions)
-	prog.Build()
-
-	var cg *callgraph.Graph
-	var analysisUsed AnalysisType
-
-	switch parser.AnalysisType {
-	case VTA:
-		slog.Info("Using Variable Type Analysis (VTA)")
-		cg = vta.CallGraph(ssautil.AllFunctions(prog), cha.CallGraph(prog))
-		analysisUsed = VTA
-		slog.Info("VTA completed successfully")
-	default:
-		slog.Info("Using Class Hierarchy Analysis (CHA)")
-		cg = cha.CallGraph(prog)
-		analysisUsed = VTA
-	}
-
+	slog.Info("Using Variable Type Analysis (VTA)")
+	cg := vta.CallGraph(ssautil.AllFunctions(prog), cha.CallGraph(prog))
+	slog.Info("VTA completed successfully")
 	// Получаем путь модуля
-	modulePath, err := GetModulePath(parser.Config.Dir)
+	modulePath, err := GetModulePath(analyzer.Config.Dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get module path: %w", err)
 	}
@@ -93,7 +80,7 @@ func (parser *universalParser) Parse() (*AnalyzerResult, error) {
 	duration := time.Since(startTime)
 
 	slog.Info("Analysis completed",
-		"type", analysisUsed,
+		"type", VTA,
 		"total_nodes", len(cg.Nodes),
 		"filtered_nodes", len(filteredCg.Nodes),
 		"module", modulePath,
@@ -103,9 +90,65 @@ func (parser *universalParser) Parse() (*AnalyzerResult, error) {
 		CallGraph:    filteredCg,
 		Fset:         prog.Fset,
 		ModulePath:   modulePath,
-		AnalysisType: analysisUsed,
+		AnalysisType: VTA,
 		Duration:     duration,
 	}, nil
+}
+
+func (analyzer *CHAAnalyzer) Analyze() (*AnalyzerResult, error) {
+	startTime := time.Now()
+
+	prog, err := getSSAProgram(analyzer.Config)
+	if err != nil {
+		slog.Error("Failed to build SSA program", "error", err)
+		return nil, fmt.Errorf("could not build ssa program: %w", err)
+	}
+
+	slog.Info("Using Class Hierarchy Analysis (CHA)")
+	cg := cha.CallGraph(prog)
+	// Получаем путь модуля
+	modulePath, err := GetModulePath(analyzer.Config.Dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get module path: %w", err)
+	}
+
+	// Фильтруем функции проекта
+	filteredCg := filterProjectFunctions(cg, modulePath)
+
+	duration := time.Since(startTime)
+
+	slog.Info("Analysis completed",
+		"type", CHA,
+		"total_nodes", len(cg.Nodes),
+		"filtered_nodes", len(filteredCg.Nodes),
+		"module", modulePath,
+		"duration", duration)
+
+	return &AnalyzerResult{
+		CallGraph:    filteredCg,
+		Fset:         prog.Fset,
+		ModulePath:   modulePath,
+		AnalysisType: CHA,
+		Duration:     duration,
+	}, nil
+}
+
+func getSSAProgram(config *packages.Config) (*ssa.Program, error) {
+
+	slog.Info("Loading packages", "dir", config.Dir)
+	pkgs, err := packages.Load(config, "./...")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load packages: %w", err)
+	}
+
+	if len(pkgs) == 0 {
+		return nil, fmt.Errorf("no packages found in directory: %s", config.Dir)
+	}
+
+	slog.Info("Packages loaded", "count", len(pkgs))
+	prog, _ := ssautil.AllPackages(pkgs, ssa.SanityCheckFunctions)
+	prog.Build()
+	return prog, nil
 }
 
 func GetModulePath(projectPath string) (string, error) {

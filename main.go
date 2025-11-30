@@ -11,18 +11,22 @@ import (
 )
 
 func main() {
-	Run()
+	run()
 }
 
-func Run() {
+func run() {
 	inputProcessor := cmd.NewCliProcessor()
 	AppConfig, err := inputProcessor.ProcessAnalysisConfInput()
 	if err != nil {
 		log.Fatal(err)
 	}
-	slog.Info("analysis started. Analysis type: VTA")
+	slog.Info("analysis started.")
 
-	parseRes, err := analysis.NewAstParser(AppConfig.Config, analysis.VTA).Parse()
+	analyzeType, err := inputProcessor.ProcessAnalysisTypeInput()
+	if err != nil {
+		log.Fatal(err)
+	}
+	parseRes, err := analysis.NewAstAnalyzer(AppConfig.Config, analyzeType).Analyze()
 	if err != nil {
 		log.Fatal(err)
 	}
