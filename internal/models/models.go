@@ -1,13 +1,18 @@
 package models
 
-import "golang.org/x/tools/go/packages"
-
 type AppConfig struct {
-	Config *packages.Config
+	ProjectPath string
+	VulnFunc    *VulnFuncInfo
+}
+
+type VulnFuncInfo struct {
+	FuncName string
+	FileName string
+	Line     int
 }
 
 /* Структура ключа: путь_до_пакета.название_функции.название_файла.номер_строки */
-const KeyForNodeStructure = "{%s}.{%s}.{%s}.{%d}"
+const KeyForNodeStructure = "{%s}.{%s}.{%d}"
 
 type FuncInfo struct {
 	FullSignature string

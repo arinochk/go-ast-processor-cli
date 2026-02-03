@@ -1,194 +1,62 @@
 package analysis
 
 import (
+	"context"
 	"fmt"
-	"go/token"
-	"golang.org/x/mod/modfile"
-	"golang.org/x/tools/go/callgraph"
-	"golang.org/x/tools/go/callgraph/cha"
-	"golang.org/x/tools/go/callgraph/vta"
-	"golang.org/x/tools/go/packages"
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
+	"go-ast-processor-cli/internal/analysis/converter"
+	"go-ast-processor-cli/internal/analysis/xtools"
+	"go-ast-processor-cli/internal/models"
 	"log/slog"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 )
 
-type AnalysisType int
-
-const (
-	VTA AnalysisType = iota
-	CHA
-)
-
-type AnalyzerResult struct {
-	CallGraph    *callgraph.Graph
-	Fset         *token.FileSet
-	ModulePath   string
-	AnalysisType AnalysisType
-	Duration     time.Duration
+type defaultAnalyzer struct {
+	modulePathResolver modulePathResolver
+	graphBuilder       xtools.GraphBuilder
+	converter          converter.GraphConverter
+	logger             *slog.Logger
 }
 
-type AstAnalyzer interface {
-	Analyze() (*AnalyzerResult, error)
-}
-
-func NewAstAnalyzer(config *packages.Config, analysisType AnalysisType) AstAnalyzer {
-	switch analysisType {
-	case VTA:
-		return &VTAAnalyzer{config, analysisType}
-	case CHA:
-		return &CHAAnalyzer{config, analysisType}
-	default:
-		return &CHAAnalyzer{config, analysisType}
+func NewDefaultAnalyzer(logger *slog.Logger) Analyzer {
+	return &defaultAnalyzer{
+		modulePathResolver: newModuleResolver(logger),
+		graphBuilder:       xtools.NewGraphBuilder(logger),
+		logger:             logger,
+		converter:          converter.NewGraphConverter(logger),
 	}
 }
 
-type CHAAnalyzer struct {
-	Config       *packages.Config
-	AnalysisType AnalysisType
-}
+func (a defaultAnalyzer) Analyze(ctx context.Context, projectPath string, vulnFuncInfo *models.VulnFuncInfo) (*models.Tree, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("operation cancelled: %w", err)
+	}
 
-type VTAAnalyzer struct {
-	Config       *packages.Config
-	AnalysisType AnalysisType
-}
-
-func (analyzer *VTAAnalyzer) Analyze() (*AnalyzerResult, error) {
 	startTime := time.Now()
-
-	prog, err := getSSAProgram(analyzer.Config)
+	modulePath, err := a.modulePathResolver.ResolveModulePath(projectPath)
 	if err != nil {
-		slog.Error("Failed to build SSA program", "error", err)
-		return nil, fmt.Errorf("could not build ssa program: %w", err)
-	}
-	slog.Info("Using Variable Type Analysis (VTA)")
-	cg := vta.CallGraph(ssautil.AllFunctions(prog), cha.CallGraph(prog))
-	slog.Info("VTA completed successfully")
-	modulePath, err := GetModulePath(analyzer.Config.Dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get module path: %w", err)
+		return nil, fmt.Errorf("failed to resolve module path: %w", err)
 	}
 
-	filteredCg := filterProjectFunctions(cg, modulePath)
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("operation cancelled: %w", err)
+	}
 
+	fset, graph, err := a.graphBuilder.Build(ctx, projectPath, modulePath, vulnFuncInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build graph: %w", err)
+	}
 	duration := time.Since(startTime)
-
-	slog.Info("Analysis completed",
-		"type", VTA,
-		"total_nodes", len(cg.Nodes),
-		"filtered_nodes", len(filteredCg.Nodes),
-		"module", modulePath,
+	a.logger.Info("Analysis completed",
+		"total_nodes", len(graph.Nodes),
 		"duration", duration)
 
-	return &AnalyzerResult{
-		CallGraph:    filteredCg,
-		Fset:         prog.Fset,
-		ModulePath:   modulePath,
-		AnalysisType: VTA,
-		Duration:     duration,
-	}, nil
-}
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("operation cancelled: %w", err)
+	}
 
-func (analyzer *CHAAnalyzer) Analyze() (*AnalyzerResult, error) {
-	startTime := time.Now()
-
-	prog, err := getSSAProgram(analyzer.Config)
+	tree, err := a.converter.Convert(ctx, graph, fset, modulePath, vulnFuncInfo)
 	if err != nil {
-		slog.Error("Failed to build SSA program", "error", err)
-		return nil, fmt.Errorf("could not build ssa program: %w", err)
+		return nil, fmt.Errorf("failed to convert google/x/tools vta graph: %w", err)
 	}
-
-	slog.Info("Using Class Hierarchy Analysis (CHA)")
-	cg := cha.CallGraph(prog)
-	modulePath, err := GetModulePath(analyzer.Config.Dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get module path: %w", err)
-	}
-
-	filteredCg := filterProjectFunctions(cg, modulePath)
-
-	duration := time.Since(startTime)
-
-	slog.Info("Analysis completed",
-		"type", CHA,
-		"total_nodes", len(cg.Nodes),
-		"filtered_nodes", len(filteredCg.Nodes),
-		"module", modulePath,
-		"duration", duration)
-
-	return &AnalyzerResult{
-		CallGraph:    filteredCg,
-		Fset:         prog.Fset,
-		ModulePath:   modulePath,
-		AnalysisType: CHA,
-		Duration:     duration,
-	}, nil
-}
-
-func getSSAProgram(config *packages.Config) (*ssa.Program, error) {
-
-	slog.Info("Loading packages", "dir", config.Dir)
-	pkgs, err := packages.Load(config, "./...")
-	if err != nil {
-		return nil, fmt.Errorf("failed to load packages: %w", err)
-	}
-
-	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("no packages found in directory: %s", config.Dir)
-	}
-
-	slog.Info("Packages loaded", "count", len(pkgs))
-	prog, _ := ssautil.AllPackages(pkgs, ssa.SanityCheckFunctions)
-	prog.Build()
-	return prog, nil
-}
-
-func GetModulePath(projectPath string) (string, error) {
-	goModPath := filepath.Join(projectPath, "go.mod")
-	data, err := os.ReadFile(goModPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read go.mod: %w", err)
-	}
-
-	modulePath := modfile.ModulePath(data)
-	if modulePath == "" {
-		return "", fmt.Errorf("no module path found in go.mod")
-	}
-
-	return modulePath, nil
-}
-
-func filterProjectFunctions(cg *callgraph.Graph, modulePath string) *callgraph.Graph {
-	filteredGraph := callgraph.New(nil)
-	nodeMap := make(map[*ssa.Function]*callgraph.Node)
-
-	// Создаем узлы для функций проекта
-	for _, node := range cg.Nodes {
-		if node.Func != nil && node.Func.Pkg != nil && node.Func.Pkg.Pkg != nil {
-			pkgPath := node.Func.Pkg.Pkg.Path()
-			if strings.HasPrefix(pkgPath, modulePath) {
-				newNode := filteredGraph.CreateNode(node.Func)
-				nodeMap[node.Func] = newNode
-			}
-		}
-	}
-
-	// Добавляем ребра между узлами проекта
-	for _, node := range cg.Nodes {
-		if newNode, exists := nodeMap[node.Func]; exists {
-			for _, edge := range node.Out {
-				if edge.Callee != nil && edge.Callee.Func != nil {
-					if calleeNode, exists := nodeMap[edge.Callee.Func]; exists {
-						callgraph.AddEdge(newNode, edge.Site, calleeNode)
-					}
-				}
-			}
-		}
-	}
-
-	return filteredGraph
+	return tree, nil
 }
