@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"context"
 	"fmt"
 	"go-ast-processor-cli/internal/models"
 	"log/slog"
@@ -13,31 +14,31 @@ import (
 Мы ищем путь до корневых узлов.
 */
 type PathFuncFinder interface {
-	FindPath(pkgPath string, funcName string, filename string, line int) ([][]*models.TreeNode, error)
+	FindPath(ctx context.Context, tree *models.Tree, vulnFuncInfo *models.VulnFuncInfo) ([][]*models.TreeNode, error)
 }
 
-func NewPathFuncFinder(tree *models.Tree) PathFuncFinder {
-	return &PathFuncFinderImpl{Tree: tree}
+func NewPathFuncFinder() PathFuncFinder {
+	return &PathFuncFinderImpl{}
 }
 
 type PathFuncFinderImpl struct {
-	Tree *models.Tree
 }
 
-func (f *PathFuncFinderImpl) FindPath(pkgPath string, funcName string, filename string, line int) ([][]*models.TreeNode, error) {
-	key := fmt.Sprintf(models.KeyForNodeStructure, pkgPath, funcName, filename, line)
-	target, ok := f.Tree.AllNodes[key]
+func (f *PathFuncFinderImpl) FindPath(
+	ctx context.Context,
+	tree *models.Tree,
+	vulnFuncInfo *models.VulnFuncInfo) ([][]*models.TreeNode, error) {
+
+	key := fmt.Sprintf(models.KeyForNodeStructure, vulnFuncInfo.FuncName, vulnFuncInfo.FileName, vulnFuncInfo.Line)
+	target, ok := tree.AllNodes[key]
 	if !ok {
-		slog.Error("Failed to find path for node:", pkgPath, funcName)
-		for k, v := range f.Tree.AllNodes {
-			if k == pkgPath {
-				slog.Info(fmt.Sprintf("Found package path for: %s", pkgPath))
+		slog.Error("Failed to find path for node:", vulnFuncInfo.FuncName)
+		for k, v := range tree.AllNodes {
+			if strings.Contains(v.FuncInfo.Name, vulnFuncInfo.FuncName) {
+				slog.Info(fmt.Sprintf("Found path function: %s Key: %s", vulnFuncInfo.FuncName, k))
 			}
-			if strings.Contains(v.FuncInfo.Name, funcName) {
-				slog.Info(fmt.Sprintf("Found path function: %s Key: %s", funcName, k))
-			}
-			if v.FuncInfo.Name == funcName {
-				slog.Info(fmt.Sprintf("Found path function: %s Key: %s", funcName, k))
+			if v.FuncInfo.Name == vulnFuncInfo.FuncName {
+				slog.Info(fmt.Sprintf("Found path function: %s Key: %s", vulnFuncInfo.FuncName, k))
 			}
 		}
 		return nil, fmt.Errorf("function not found in call graph")
@@ -46,12 +47,24 @@ func (f *PathFuncFinderImpl) FindPath(pkgPath string, funcName string, filename 
 	allPaths := make([][]*models.TreeNode, 0)
 	currentPath := make([]*models.TreeNode, 0)
 	visitedInCurrentPath := make(map[*models.TreeNode]bool)
+	depthCounter := 0
 
-	var dfs func(node *models.TreeNode)
-	dfs = func(node *models.TreeNode) {
+	var dfs func(node *models.TreeNode) error
+	dfs = func(node *models.TreeNode) error {
+		depthCounter++
+
+		// Проверяем контекст каждые 50 уровней глубины
+		if depthCounter%50 == 0 {
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf("operation cancelled")
+			default:
+			}
+		}
+
 		// Проверяем циклы
 		if visitedInCurrentPath[node] {
-			return
+			return nil
 		}
 
 		// Добавляем узел в текущий путь
@@ -67,16 +80,22 @@ func (f *PathFuncFinderImpl) FindPath(pkgPath string, funcName string, filename 
 		} else {
 			// Рекурсивно обходим всех вызывающих (InNodes)
 			for _, caller := range node.InNodes {
-				dfs(caller)
+				if err := dfs(caller); err != nil {
+					return err
+				}
 			}
 		}
 
 		// Backtracking: удаляем узел из текущего пути
 		currentPath = currentPath[:len(currentPath)-1]
 		delete(visitedInCurrentPath, node)
+		depthCounter--
+		return nil
 	}
 
 	// Запускаем DFS от целевой функции
-	dfs(target)
+	if err := dfs(target); err != nil {
+		return nil, err
+	}
 	return allPaths, nil
 }

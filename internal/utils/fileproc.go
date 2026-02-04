@@ -1,4 +1,4 @@
-package fileproc
+package utils
 
 import "os"
 

@@ -1,86 +1,49 @@
 package main
 
 import (
-	"fmt"
-	"go-ast-processor-cli/internal/analysis"
-	"go-ast-processor-cli/internal/cmd"
-	"go-ast-processor-cli/internal/tree"
-	"log"
+	"context"
+	"go-ast-processor-cli/internal/app"
 	"log/slog"
-	"strings"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 func main() {
-	run()
-}
+	slog.Info("application starting",
+		"pid", os.Getpid(),
+		"uid", os.Getuid(),
+	)
 
-func run() {
-	inputProcessor := cmd.NewCliProcessor()
-	AppConfig, err := inputProcessor.ProcessAnalysisConfInput()
-	if err != nil {
-		log.Fatal(err)
-	}
-	slog.Info("analysis started.")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
 
-	analyzeType, err := inputProcessor.ProcessAnalysisTypeInput()
-	if err != nil {
-		log.Fatal(err)
-	}
-	parseRes, err := analysis.NewAstAnalyzer(AppConfig.Config, analyzeType).Analyze()
-	if err != nil {
-		log.Fatal(err)
-	}
+	ctx, stop := signal.NotifyContext(ctx,
+		os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	callGraph, err := analysis.NewGraphToDtoConverter(parseRes).ConvertToDto()
-	if err != nil {
-		log.Fatal(err)
-	}
+	appErr := make(chan error, 1)
+	go func() {
+		appErr <- app.NewApp().Run(ctx)
+	}()
 
-	slog.Info(fmt.Sprintf("analysis finished. %d root functions found", len(callGraph.Roots)))
-	slog.Info(fmt.Sprintf("Analysis type: %v, Duration: %v", parseRes.AnalysisType, parseRes.Duration))
-
-	funcPkgPath, funcName, filename, line, err := inputProcessor.ProcessTargetFunctionInput()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	slog.Info(fmt.Sprintf("Searching for call paths to: %s.%s", funcPkgPath, funcName))
-
-	functionCallPaths, err := tree.NewPathFuncFinder(callGraph).FindPath(funcPkgPath, funcName, filename, line)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if len(functionCallPaths) == 0 {
-		slog.Info("No call paths found for the target function")
-		return
-	}
-
-	slog.Info(fmt.Sprintf("Found %d call path(s):", len(functionCallPaths)))
-
-	for i, path := range functionCallPaths {
-		slog.Info(fmt.Sprintf("Path %d:", i+1))
-
-		// Путь хранится в порядке от вызывающих к целевой функции
-		// Разворачиваем для более естественного отображения
-		for j := len(path) - 1; j >= 0; j-- {
-			node := path[j]
-			if node.FuncInfo != nil {
-				callerInfo := fmt.Sprintf("  → %s.%s",
-					node.FuncInfo.PkgPath,
-					node.FuncInfo.Name)
-
-				if node.FuncInfo.FileName != "" {
-					callerInfo += fmt.Sprintf(" (file: %s", node.FuncInfo.FileName)
-					if node.FuncInfo.Line > 0 {
-						callerInfo += fmt.Sprintf(", line: %d", node.FuncInfo.Line)
-					}
-					callerInfo += ")"
-				}
-
-				slog.Info(callerInfo)
+	select {
+	case err := <-appErr:
+		if err != nil {
+			if ctx.Err() != nil {
+				slog.Info("application cancelled", "reason", ctx.Err())
+				os.Exit(0)
+			} else {
+				slog.Error("app run error", "error", err)
+				os.Exit(1)
 			}
+		} else {
+			slog.Info("application completed successfully")
+			os.Exit(0)
 		}
-		slog.Info(strings.Repeat("-", 50))
+	case <-ctx.Done():
+		slog.Info("shutting down", "reason", ctx.Err())
+		os.Exit(0)
 	}
 }
