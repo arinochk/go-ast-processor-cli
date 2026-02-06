@@ -8,7 +8,9 @@ import (
 	"strings"
 )
 
-func newAllProjectPkgsFinder(logger *slog.Logger) allProjectPkgsFinder {
+type AllProjectPkgsFinder func(ctx context.Context, projectPath, modulePath string) ([]string, error)
+
+func NewAllProjectPkgsFinder(logger *slog.Logger) AllProjectPkgsFinder {
 	return func(ctx context.Context, projectPath, modulePath string) ([]string, error) {
 		logger.Debug("running go list", "dir", projectPath)
 

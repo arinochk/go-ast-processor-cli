@@ -8,17 +8,26 @@ import (
 	"log/slog"
 )
 
-type defaultOutgoingEdgesAdder struct {
-	logger          *slog.Logger
-	nodeFilter      nodeFilter
-	nodeIdGenerator nodeIdGenerator
+type OutgoingEdgesAdder interface {
+	addOutgoingEdge(ctx context.Context, currentNodeDomain *models.TreeNode,
+		currentNode *callgraph.Node, nodeMap map[string]*models.TreeNode,
+		modulePath string, fset *token.FileSet)
 }
 
-func newOutgoingEdgesAdder(logger *slog.Logger) outgoingEdgesAdder {
+type defaultOutgoingEdgesAdder struct {
+	logger          *slog.Logger
+	nodeFilter      NodeFilter
+	nodeIdGenerator NodeIdGenerator
+}
+
+func NewOutgoingEdgesAdder(
+	logger *slog.Logger,
+	filter NodeFilter,
+	generator NodeIdGenerator) OutgoingEdgesAdder {
 	return defaultOutgoingEdgesAdder{
 		logger:          logger,
-		nodeFilter:      newNodeFilter(),
-		nodeIdGenerator: newNodeIDGenerator(),
+		nodeFilter:      filter,
+		nodeIdGenerator: generator,
 	}
 }
 

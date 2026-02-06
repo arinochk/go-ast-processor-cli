@@ -6,19 +6,28 @@ import (
 	"log/slog"
 )
 
-type defaultVulnPkgsFinder struct {
-	logger                *slog.Logger
-	pkgByFilePathFinder   pkgByFilePathFinder
-	allProjectPkgsFinder  allProjectPkgsFinder
-	pkgDependenciesFinder pkgDependenciesFinder
+type VulnPkgsFinder interface {
+	findVulnPackages(ctx context.Context, projectPath, filePath, modulePath string) ([]string, error)
 }
 
-func newVulnPkgsFinder(logger *slog.Logger) vulnPkgsFinder {
+type defaultVulnPkgsFinder struct {
+	logger                *slog.Logger
+	pkgByFilePathFinder   PkgByFilePathFinder
+	allProjectPkgsFinder  AllProjectPkgsFinder
+	pkgDependenciesFinder PkgDependenciesFinder
+}
+
+func NewVulnPkgsFinder(
+	logger *slog.Logger,
+	pkgByFilePathFinder PkgByFilePathFinder,
+	allProjectPkgsFinder AllProjectPkgsFinder,
+	pkgDependenciesFinder PkgDependenciesFinder,
+) VulnPkgsFinder {
 	return &defaultVulnPkgsFinder{
 		logger:                logger,
-		pkgByFilePathFinder:   newPkgByFilePathFinder(logger),
-		allProjectPkgsFinder:  newAllProjectPkgsFinder(logger),
-		pkgDependenciesFinder: newPkgDependenciesFinder(logger),
+		pkgByFilePathFinder:   pkgByFilePathFinder,
+		allProjectPkgsFinder:  allProjectPkgsFinder,
+		pkgDependenciesFinder: pkgDependenciesFinder,
 	}
 }
 

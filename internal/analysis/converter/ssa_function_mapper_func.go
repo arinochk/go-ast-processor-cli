@@ -6,7 +6,9 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-func newSsaFunctionMapper() ssaFunctionMapper {
+type SsaFunctionMapper func(fn *ssa.Function, fset *token.FileSet) *models.FuncInfo
+
+func NewSsaFunctionMapper() SsaFunctionMapper {
 	return func(fn *ssa.Function, fset *token.FileSet) *models.FuncInfo {
 		pos := fset.Position(fn.Pos())
 

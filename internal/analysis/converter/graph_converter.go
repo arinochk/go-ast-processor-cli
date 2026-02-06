@@ -9,10 +9,15 @@ import (
 	"log/slog"
 )
 
+type GraphConverter interface {
+	Convert(ctx context.Context, callGraph *callgraph.Graph, fset *token.FileSet,
+		modulePath string, vulnFuncInfo *models.VulnFuncInfo) (*models.Tree, error)
+}
+
 type defaultGraphConverter struct {
 	logger            *slog.Logger
-	allNodesFinder    allNodesFinder
-	connectionBuilder connectionBuilder
+	allNodesFinder    AllNodesFinder
+	connectionBuilder ConnectionBuilder
 }
 
 func (c defaultGraphConverter) Convert(

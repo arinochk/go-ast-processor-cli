@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+type OutputProcessor interface {
+	Process(functionCallPaths [][]*models.TreeNode)
+}
+
 type defaultOutputProcessor struct {
 	writer writer
 }
@@ -19,6 +23,10 @@ func NewOuputProcessor() OutputProcessor {
 
 func (outputProcessor defaultOutputProcessor) Process(functionCallPaths [][]*models.TreeNode) {
 	outputProcessor.writer.write(functionCallPaths)
+}
+
+type writer interface {
+	write(functionCallPaths [][]*models.TreeNode)
 }
 
 type consoleWriter struct {

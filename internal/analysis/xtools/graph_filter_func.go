@@ -6,7 +6,9 @@ import (
 	"strings"
 )
 
-func newGraphFilter() graphFilter {
+type GraphFilter func(cg *callgraph.Graph, modulePath string) *callgraph.Graph
+
+func NewGraphFilter() GraphFilter {
 	return func(cg *callgraph.Graph, modulePath string) *callgraph.Graph {
 		filteredGraph := callgraph.New(nil)
 		nodeMap := make(map[*ssa.Function]*callgraph.Node)

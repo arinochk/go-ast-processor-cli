@@ -8,7 +8,9 @@ import (
 	"os"
 )
 
-func newPkgByFilePathFinder(logger *slog.Logger) pkgByFilePathFinder {
+type PkgByFilePathFinder func(ctx context.Context, projectPath, filePath string) (string, error)
+
+func NewPkgByFilePathFinder(logger *slog.Logger) PkgByFilePathFinder {
 	return func(ctx context.Context, projectRoot, filePath string) (string, error) {
 		if err := ctx.Err(); err != nil {
 			return "", fmt.Errorf("operation cancelled: %w", err)

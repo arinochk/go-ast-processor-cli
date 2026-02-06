@@ -8,11 +8,15 @@ import (
 	"path/filepath"
 )
 
+type ModulePathResolver interface {
+	ResolveModulePath(projectPath string) (string, error)
+}
+
 type defaultModuleResolver struct {
 	logger *slog.Logger
 }
 
-func newModuleResolver(logger *slog.Logger) modulePathResolver {
+func NewModuleResolver(logger *slog.Logger) ModulePathResolver {
 	return &defaultModuleResolver{
 		logger: logger,
 	}

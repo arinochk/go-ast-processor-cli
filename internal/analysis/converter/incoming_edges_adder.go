@@ -8,17 +8,25 @@ import (
 	"log/slog"
 )
 
-type defaultIncomingEdgesAdder struct {
-	logger          *slog.Logger
-	nodeFilter      nodeFilter
-	nodeIdGenerator nodeIdGenerator
+type IncomingEdgesAdder interface {
+	addIncomingEdge(ctx context.Context, currentNodeDomain *models.TreeNode,
+		currentNode *callgraph.Node, nodeMap map[string]*models.TreeNode,
+		modulePath string, fset *token.FileSet)
 }
 
-func newIncomingEdgesAdder(logger *slog.Logger) incomingEdgesAdder {
+type defaultIncomingEdgesAdder struct {
+	logger          *slog.Logger
+	nodeFilter      NodeFilter
+	nodeIdGenerator NodeIdGenerator
+}
+
+func NewIncomingEdgesAdder(logger *slog.Logger,
+	nodeFilter NodeFilter,
+	nodeIdGenerator NodeIdGenerator) IncomingEdgesAdder {
 	return defaultIncomingEdgesAdder{
 		logger:          logger,
-		nodeFilter:      newNodeFilter(),
-		nodeIdGenerator: newNodeIDGenerator(),
+		nodeFilter:      nodeFilter,
+		nodeIdGenerator: nodeIdGenerator,
 	}
 }
 
