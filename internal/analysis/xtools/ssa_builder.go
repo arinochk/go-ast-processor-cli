@@ -10,15 +10,20 @@ import (
 	"time"
 )
 
-type defaultSsaBuilder struct {
-	logger         *slog.Logger
-	vulnPkgsFinder vulnPkgsFinder
+type SsaBuilder interface {
+	build(ctx context.Context, projectPath, filePath, modulePath string) (*ssa.Program, error)
 }
 
-func newSsaBuilder(logger *slog.Logger) ssaBuilder {
+type defaultSsaBuilder struct {
+	logger         *slog.Logger
+	vulnPkgsFinder VulnPkgsFinder
+}
+
+func NewSsaBuilder(logger *slog.Logger,
+	vulnPkgsFinder VulnPkgsFinder) SsaBuilder {
 	return &defaultSsaBuilder{
 		logger:         logger,
-		vulnPkgsFinder: newVulnPkgsFinder(logger),
+		vulnPkgsFinder: vulnPkgsFinder,
 	}
 }
 

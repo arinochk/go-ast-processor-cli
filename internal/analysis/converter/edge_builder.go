@@ -8,21 +8,31 @@ import (
 	"log/slog"
 )
 
-type defaultEdgeBuilder struct {
-	logger             *slog.Logger
-	nodeFilter         nodeFilter
-	nodeIdGenerator    nodeIdGenerator
-	outgoingEdgesAdder outgoingEdgesAdder
-	incomingEdgesAdder incomingEdgesAdder
+type ConnectionBuilder interface {
+	buildConnections(ctx context.Context, callGraph *callgraph.Graph,
+		nodeMap map[string]*models.TreeNode, fset *token.FileSet, modulePath string)
 }
 
-func newConnectionBuilder(logger *slog.Logger) connectionBuilder {
+type defaultEdgeBuilder struct {
+	logger             *slog.Logger
+	nodeFilter         NodeFilter
+	nodeIdGenerator    NodeIdGenerator
+	outgoingEdgesAdder OutgoingEdgesAdder
+	incomingEdgesAdder IncomingEdgesAdder
+}
+
+func NewConnectionBuilder(
+	logger *slog.Logger,
+	nodeFilter NodeFilter,
+	nodeIdGenerator NodeIdGenerator,
+	outgoingEdgesAdder OutgoingEdgesAdder,
+	incomingEdgesAdder IncomingEdgesAdder) ConnectionBuilder {
 	return &defaultEdgeBuilder{
 		logger:             logger,
-		nodeFilter:         newNodeFilter(),
-		nodeIdGenerator:    newNodeIDGenerator(),
-		outgoingEdgesAdder: newOutgoingEdgesAdder(logger),
-		incomingEdgesAdder: newIncomingEdgesAdder(logger),
+		nodeFilter:         nodeFilter,
+		nodeIdGenerator:    nodeIdGenerator,
+		outgoingEdgesAdder: outgoingEdgesAdder,
+		incomingEdgesAdder: incomingEdgesAdder,
 	}
 }
 

@@ -7,7 +7,9 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-func newNodeIDGenerator() nodeIdGenerator {
+type NodeIdGenerator func(fn *ssa.Function, fset *token.FileSet) string
+
+func NewNodeIDGenerator() NodeIdGenerator {
 	return func(fn *ssa.Function, fset *token.FileSet) string {
 		funcPos := fset.Position(fn.Pos())
 		if fn.Pkg != nil && fn.Pkg.Pkg != nil {

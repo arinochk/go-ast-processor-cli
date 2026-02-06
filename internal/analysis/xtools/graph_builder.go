@@ -12,9 +12,13 @@ import (
 	"log/slog"
 )
 
+type GraphBuilder interface {
+	Build(ctx context.Context, projectPath string, modulePath string, funcInfo *models.VulnFuncInfo) (*token.FileSet, *callgraph.Graph, error)
+}
+
 type defaultGraphBuilder struct {
-	ssaBuilder  ssaBuilder
-	graphFilter graphFilter
+	ssaBuilder  SsaBuilder
+	graphFilter GraphFilter
 	logger      *slog.Logger
 }
 

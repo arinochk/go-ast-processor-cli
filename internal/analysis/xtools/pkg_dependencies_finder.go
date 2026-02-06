@@ -9,12 +9,16 @@ import (
 	"time"
 )
 
+type PkgDependenciesFinder interface {
+	getAllPkgDependencies(ctx context.Context, projectPath, targetPkg string, allPkgs []string, maxDepth int) ([]string, error)
+}
+
 type defaultPkgDependenciesFinder struct {
 	logger           *slog.Logger
 	pkgImportsFinder pkgImportsFinder
 }
 
-func newPkgDependenciesFinder(logger *slog.Logger) pkgDependenciesFinder {
+func NewPkgDependenciesFinder(logger *slog.Logger) PkgDependenciesFinder {
 	return &defaultPkgDependenciesFinder{
 		logger:           logger,
 		pkgImportsFinder: newPkgImportsFinder(logger),

@@ -7,7 +7,9 @@ import (
 	"strings"
 )
 
-func newNodeFilter() nodeFilter {
+type NodeFilter func(fn *ssa.Function, node *callgraph.Node, modulePath string, fset *token.FileSet) bool
+
+func NewNodeFilter() NodeFilter {
 	return func(fn *ssa.Function, node *callgraph.Node, modulePath string, fset *token.FileSet) bool {
 		if fn == nil || node == nil || node.Func == nil || node.Func.Pkg == nil || node.Func.Pkg.Pkg == nil {
 			return true

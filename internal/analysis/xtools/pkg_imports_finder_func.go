@@ -6,6 +6,8 @@ import (
 	"log/slog"
 )
 
+type pkgImportsFinder func(projectPath, pkgPath string) ([]string, error)
+
 func newPkgImportsFinder(logger *slog.Logger) pkgImportsFinder {
 	return func(projectPath, pkgPath string) ([]string, error) {
 		logger.Debug("loading package imports", "package", pkgPath)

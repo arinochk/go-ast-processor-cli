@@ -8,19 +8,28 @@ import (
 	"log/slog"
 )
 
-type defaultAllNodesFinder struct {
-	logger            *slog.Logger
-	nodeFilter        nodeFilter
-	funcIdGenerator   nodeIdGenerator
-	ssaFunctionMapper ssaFunctionMapper
+type AllNodesFinder interface {
+	getAllNodesMap(ctx context.Context, callGraph *callgraph.Graph,
+		fset *token.FileSet, modulePath string) map[string]*models.TreeNode
 }
 
-func newAllNodesFinder(logger *slog.Logger) allNodesFinder {
+type defaultAllNodesFinder struct {
+	logger            *slog.Logger
+	nodeFilter        NodeFilter
+	funcIdGenerator   NodeIdGenerator
+	ssaFunctionMapper SsaFunctionMapper
+}
+
+func NewAllNodesFinder(
+	logger *slog.Logger,
+	filter NodeFilter,
+	generator NodeIdGenerator,
+	mapper SsaFunctionMapper) AllNodesFinder {
 	return &defaultAllNodesFinder{
 		logger:            logger,
-		nodeFilter:        newNodeFilter(),
-		funcIdGenerator:   newNodeIDGenerator(),
-		ssaFunctionMapper: newSsaFunctionMapper(),
+		nodeFilter:        filter,
+		funcIdGenerator:   generator,
+		ssaFunctionMapper: mapper,
 	}
 }
 

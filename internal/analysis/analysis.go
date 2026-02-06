@@ -10,19 +10,27 @@ import (
 	"time"
 )
 
+type Analyzer interface {
+	Analyze(ctx context.Context, projectPath string, vuln *models.VulnFuncInfo) (*models.Tree, error)
+}
+
 type defaultAnalyzer struct {
-	modulePathResolver modulePathResolver
+	modulePathResolver ModulePathResolver
 	graphBuilder       xtools.GraphBuilder
 	converter          converter.GraphConverter
 	logger             *slog.Logger
 }
 
-func NewDefaultAnalyzer(logger *slog.Logger) Analyzer {
+func NewAnalyzer(
+	logger *slog.Logger,
+	resolver ModulePathResolver,
+	graphBuilder xtools.GraphBuilder,
+	converter converter.GraphConverter) Analyzer {
 	return &defaultAnalyzer{
-		modulePathResolver: newModuleResolver(logger),
-		graphBuilder:       xtools.NewGraphBuilder(logger),
+		modulePathResolver: resolver,
+		graphBuilder:       graphBuilder,
 		logger:             logger,
-		converter:          converter.NewGraphConverter(logger),
+		converter:          converter,
 	}
 }
 
