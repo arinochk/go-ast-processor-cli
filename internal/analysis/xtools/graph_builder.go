@@ -20,20 +20,20 @@ func NewGraphBuilder(
 	logger *slog.Logger,
 	builder SsaBuilder,
 	filter GraphFilter) GraphBuilder {
-	return &defaultGraphBuilder{
+	return &graphBuilder{
 		ssaBuilder:  builder,
 		graphFilter: filter,
 		logger:      logger,
 	}
 }
 
-type defaultGraphBuilder struct {
+type graphBuilder struct {
 	ssaBuilder  SsaBuilder
 	graphFilter GraphFilter
 	logger      *slog.Logger
 }
 
-func (graphBuilder defaultGraphBuilder) Build(
+func (graphBuilder graphBuilder) Build(
 	ctx context.Context,
 	projectPath string,
 	modulePath string,

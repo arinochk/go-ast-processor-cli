@@ -5,6 +5,7 @@ import (
 	"go-ast-processor-cli/internal/models"
 	"go/token"
 	"golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/ssa"
 	"log/slog"
 )
 
@@ -13,7 +14,7 @@ type AllNodesFinder interface {
 		fset *token.FileSet, modulePath string) map[string]*models.TreeNode
 }
 
-type defaultAllNodesFinder struct {
+type allNodesFinder struct {
 	logger            *slog.Logger
 	nodeFilter        NodeFilter
 	funcIdGenerator   NodeIdGenerator
@@ -25,7 +26,7 @@ func NewAllNodesFinder(
 	filter NodeFilter,
 	generator NodeIdGenerator,
 	mapper SsaFunctionMapper) AllNodesFinder {
-	return &defaultAllNodesFinder{
+	return &allNodesFinder{
 		logger:            logger,
 		nodeFilter:        filter,
 		funcIdGenerator:   generator,
@@ -33,7 +34,7 @@ func NewAllNodesFinder(
 	}
 }
 
-func (nodesFinder defaultAllNodesFinder) getAllNodesMap(
+func (nodesFinder allNodesFinder) getAllNodesMap(
 	ctx context.Context,
 	callGraph *callgraph.Graph,
 	fset *token.FileSet,
@@ -66,4 +67,37 @@ func (nodesFinder defaultAllNodesFinder) getAllNodesMap(
 	}
 
 	return nodeMap
+}
+
+type SsaFunctionMapper func(fn *ssa.Function, fset *token.FileSet) *models.FuncInfo
+
+func NewSsaFunctionMapper() SsaFunctionMapper {
+	return func(fn *ssa.Function, fset *token.FileSet) *models.FuncInfo {
+		pos := fset.Position(fn.Pos())
+
+		funcInfo := &models.FuncInfo{
+			Name:          fn.Name(),
+			PkgPath:       fn.Pkg.Pkg.Path(),
+			FileName:      pos.Filename,
+			Line:          pos.Line,
+			FullSignature: fn.String(),
+			Params:        make([]*models.ParamInfo, 0),
+		}
+
+		if fn.Signature != nil {
+			params := fn.Signature.Params()
+			if params != nil {
+				for i := 0; i < params.Len(); i++ {
+					param := params.At(i)
+					paramInfo := &models.ParamInfo{
+						Name: param.Name(),
+						Type: param.Type().String(),
+					}
+					funcInfo.Params = append(funcInfo.Params, paramInfo)
+				}
+			}
+		}
+
+		return funcInfo
+	}
 }

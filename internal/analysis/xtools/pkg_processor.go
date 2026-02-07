@@ -17,7 +17,7 @@ type VulnPkgsFinder interface {
 	findVulnPackages(ctx context.Context, projectPath, filePath, modulePath string) ([]string, error)
 }
 
-type defaultVulnPkgsFinder struct {
+type vulnPkgsFinder struct {
 	logger                *slog.Logger
 	pkgByFilePathFinder   PkgByFilePathFinder
 	allProjectPkgsFinder  AllProjectPkgsFinder
@@ -30,7 +30,7 @@ func NewVulnPkgsFinder(
 	allProjectPkgsFinder AllProjectPkgsFinder,
 	pkgDependenciesFinder PkgDependenciesFinder,
 ) VulnPkgsFinder {
-	return &defaultVulnPkgsFinder{
+	return &vulnPkgsFinder{
 		logger:                logger,
 		pkgByFilePathFinder:   pkgByFilePathFinder,
 		allProjectPkgsFinder:  allProjectPkgsFinder,
@@ -38,7 +38,7 @@ func NewVulnPkgsFinder(
 	}
 }
 
-func (finder defaultVulnPkgsFinder) findVulnPackages(ctx context.Context, projectPath, filePath, modulePath string) ([]string, error) {
+func (finder vulnPkgsFinder) findVulnPackages(ctx context.Context, projectPath, filePath, modulePath string) ([]string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("context cancelled: %w", err)
 	}
@@ -171,19 +171,19 @@ type PkgDependenciesFinder interface {
 	getAllPkgDependencies(ctx context.Context, projectPath, targetPkg string, allPkgs []string, maxDepth int) ([]string, error)
 }
 
-type defaultPkgDependenciesFinder struct {
+type pkgDependenciesFinder struct {
 	logger           *slog.Logger
 	pkgImportsFinder pkgImportsFinder
 }
 
 func NewPkgDependenciesFinder(logger *slog.Logger) PkgDependenciesFinder {
-	return &defaultPkgDependenciesFinder{
+	return &pkgDependenciesFinder{
 		logger:           logger,
 		pkgImportsFinder: newPkgImportsFinder(logger),
 	}
 }
 
-func (pkgDependenciesFinder defaultPkgDependenciesFinder) getAllPkgDependencies(
+func (pkgDependenciesFinder pkgDependenciesFinder) getAllPkgDependencies(
 	ctx context.Context,
 	projectPath,
 	targetPkg string,
@@ -227,7 +227,7 @@ func (pkgDependenciesFinder defaultPkgDependenciesFinder) getAllPkgDependencies(
 	return results, nil
 }
 
-func (pkgDependenciesFinder defaultPkgDependenciesFinder) getAllPkgsDepsMap(
+func (pkgDependenciesFinder pkgDependenciesFinder) getAllPkgsDepsMap(
 	ctx context.Context,
 	projectPath string,
 	allPkgs []string) map[string][]string {
