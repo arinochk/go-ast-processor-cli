@@ -16,6 +16,17 @@ type GraphBuilder interface {
 	Build(ctx context.Context, projectPath string, modulePath string, funcInfo *models.VulnFuncInfo) (*token.FileSet, *callgraph.Graph, error)
 }
 
+func NewGraphBuilder(
+	logger *slog.Logger,
+	builder SsaBuilder,
+	filter GraphFilter) GraphBuilder {
+	return &defaultGraphBuilder{
+		ssaBuilder:  builder,
+		graphFilter: filter,
+		logger:      logger,
+	}
+}
+
 type defaultGraphBuilder struct {
 	ssaBuilder  SsaBuilder
 	graphFilter GraphFilter
