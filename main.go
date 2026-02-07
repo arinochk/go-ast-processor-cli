@@ -43,7 +43,7 @@ func main() {
 			os.Exit(0)
 		}
 	case <-ctx.Done():
-		slog.Info("shutting down", "reason", ctx.Err())
+		slog.Info("shutting down")
 		os.Exit(0)
 	}
 }

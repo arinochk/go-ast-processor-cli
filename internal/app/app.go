@@ -36,10 +36,9 @@ func NewApp() *App {
 	ssaToDomainMapper := converter.NewSsaFunctionMapper()
 	allNodesFinder := converter.NewAllNodesFinder(logger, nodeFilter, nodeIdGenerator, ssaToDomainMapper)
 
-	outgoingEdgesAdder := converter.NewOutgoingEdgesAdder(logger, nodeFilter, nodeIdGenerator)
-	incomingEdgesAdder := converter.NewIncomingEdgesAdder(logger, nodeFilter, nodeIdGenerator)
+	edgesAdder := converter.NewEdgesAdder(logger, nodeFilter, nodeIdGenerator)
 
-	connectionBuilder := converter.NewConnectionBuilder(logger, nodeFilter, nodeIdGenerator, outgoingEdgesAdder, incomingEdgesAdder)
+	connectionBuilder := converter.NewConnectionBuilder(logger, nodeFilter, nodeIdGenerator, edgesAdder)
 
 	graphConverter := converter.NewGraphConverter(logger, allNodesFinder, connectionBuilder)
 

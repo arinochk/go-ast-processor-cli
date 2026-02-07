@@ -14,6 +14,18 @@ type GraphConverter interface {
 		modulePath string, vulnFuncInfo *models.VulnFuncInfo) (*models.Tree, error)
 }
 
+func NewGraphConverter(
+	logger *slog.Logger,
+	finder AllNodesFinder,
+	builder ConnectionBuilder,
+) GraphConverter {
+	return &defaultGraphConverter{
+		logger:            logger,
+		allNodesFinder:    finder,
+		connectionBuilder: builder,
+	}
+}
+
 type defaultGraphConverter struct {
 	logger            *slog.Logger
 	allNodesFinder    AllNodesFinder

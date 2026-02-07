@@ -13,30 +13,27 @@ type ConnectionBuilder interface {
 		nodeMap map[string]*models.TreeNode, fset *token.FileSet, modulePath string)
 }
 
-type defaultEdgeBuilder struct {
-	logger             *slog.Logger
-	nodeFilter         NodeFilter
-	nodeIdGenerator    NodeIdGenerator
-	outgoingEdgesAdder OutgoingEdgesAdder
-	incomingEdgesAdder IncomingEdgesAdder
+type edgeBuilder struct {
+	logger          *slog.Logger
+	nodeFilter      NodeFilter
+	nodeIdGenerator NodeIdGenerator
+	edgesAdder      EdgesAdder
 }
 
 func NewConnectionBuilder(
 	logger *slog.Logger,
 	nodeFilter NodeFilter,
 	nodeIdGenerator NodeIdGenerator,
-	outgoingEdgesAdder OutgoingEdgesAdder,
-	incomingEdgesAdder IncomingEdgesAdder) ConnectionBuilder {
-	return &defaultEdgeBuilder{
-		logger:             logger,
-		nodeFilter:         nodeFilter,
-		nodeIdGenerator:    nodeIdGenerator,
-		outgoingEdgesAdder: outgoingEdgesAdder,
-		incomingEdgesAdder: incomingEdgesAdder,
+	edgesAdder EdgesAdder) ConnectionBuilder {
+	return &edgeBuilder{
+		logger:          logger,
+		nodeFilter:      nodeFilter,
+		nodeIdGenerator: nodeIdGenerator,
+		edgesAdder:      edgesAdder,
 	}
 }
 
-func (edgeBuilder defaultEdgeBuilder) buildConnections(
+func (edgeBuilder edgeBuilder) buildConnections(
 	ctx context.Context,
 	callGraph *callgraph.Graph,
 	nodeMap map[string]*models.TreeNode,
@@ -60,7 +57,7 @@ func (edgeBuilder defaultEdgeBuilder) buildConnections(
 			continue
 		}
 
-		edgeBuilder.outgoingEdgesAdder.addOutgoingEdge(ctx, currentNodeDomain, node, nodeMap, modulePath, fset)
-		edgeBuilder.incomingEdgesAdder.addIncomingEdge(ctx, currentNodeDomain, node, nodeMap, modulePath, fset)
+		edgeBuilder.edgesAdder.addOutgoingEdge(ctx, currentNodeDomain, node, nodeMap, modulePath, fset)
+		edgeBuilder.edgesAdder.addIncomingEdge(ctx, currentNodeDomain, node, nodeMap, modulePath, fset)
 	}
 }
