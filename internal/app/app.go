@@ -7,7 +7,7 @@ import (
 	"go-ast-processor-cli/internal/analysis/converter"
 	"go-ast-processor-cli/internal/analysis/xtools"
 	"go-ast-processor-cli/internal/cmd"
-	"go-ast-processor-cli/internal/tree"
+	"go-ast-processor-cli/internal/pathtraversal"
 	"log/slog"
 )
 
@@ -15,7 +15,7 @@ type App struct {
 	inputProcessor  cmd.InputProcessor
 	outputProcessor cmd.OutputProcessor
 	analyzer        analysis.Analyzer
-	pathFuncFinder  tree.PathFuncFinder
+	pathFuncFinder  pathtraversal.PathFuncFinder
 }
 
 func NewApp() *App {
@@ -47,7 +47,7 @@ func NewApp() *App {
 		inputProcessor:  cmd.NewCliProcessor(logger),
 		outputProcessor: cmd.NewOuputProcessor(),
 		analyzer:        analyzer,
-		pathFuncFinder:  tree.NewPathFuncFinder(),
+		pathFuncFinder:  pathtraversal.NewPathFuncFinder(),
 	}
 }
 
