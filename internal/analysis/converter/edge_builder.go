@@ -52,13 +52,13 @@ func (edgeBuilder edgeBuilder) buildConnections(
 		}
 
 		funcId := edgeBuilder.nodeIdGenerator(node.Func, fset)
-		currentNodeDomain, exists := nodeMap[funcId]
+		convertedCurrentNode, exists := nodeMap[funcId]
 		if !exists {
 			continue
 		}
 
-		edgeBuilder.edgesAdder.addOutgoingEdge(ctx, currentNodeDomain, node, nodeMap, modulePath, fset)
-		edgeBuilder.edgesAdder.addIncomingEdge(ctx, currentNodeDomain, node, nodeMap, modulePath, fset)
+		edgeBuilder.edgesAdder.addOutgoingEdge(ctx, convertedCurrentNode, node, nodeMap, modulePath, fset)
+		edgeBuilder.edgesAdder.addIncomingEdge(ctx, convertedCurrentNode, node, nodeMap, modulePath, fset)
 	}
 }
 
@@ -129,7 +129,7 @@ func (edgeAdder edgeAdder) addIncomingEdge(
 
 func (edgeAdder edgeAdder) addOutgoingEdge(
 	ctx context.Context,
-	currentNodeDto *models.TreeNode,
+	convertedCurrent *models.TreeNode,
 	currentNode *callgraph.Node,
 	nodeMap map[string]*models.TreeNode,
 	modulePath string,
@@ -151,7 +151,7 @@ func (edgeAdder edgeAdder) addOutgoingEdge(
 		}
 
 		calleeId := edgeAdder.nodeIdGenerator(calleeFn, fset)
-		if calleeNode, exists := nodeMap[calleeId]; exists && currentNodeDto != calleeNode {
+		if calleeNode, exists := nodeMap[calleeId]; exists && convertedCurrent != calleeNode {
 			callPos := fset.Position(edge.Site.Pos())
 
 			callSite := models.CallFuncInfo{
@@ -162,7 +162,7 @@ func (edgeAdder edgeAdder) addOutgoingEdge(
 				CalleeColumn:   callPos.Column,
 			}
 
-			currentNodeDto.OutNodes[callSite] = calleeNode
+			convertedCurrent.OutNodes[callSite] = calleeNode
 		}
 	}
 }

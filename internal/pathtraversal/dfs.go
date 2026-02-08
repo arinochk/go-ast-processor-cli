@@ -1,4 +1,4 @@
-package tree
+package pathtraversal
 
 import (
 	"context"
@@ -53,15 +53,11 @@ func (f *PathFuncFinderImpl) FindPath(
 	dfs = func(node *models.TreeNode) error {
 		depthCounter++
 
-		// Проверяем контекст каждые 50 уровней глубины
-		if depthCounter%50 == 0 {
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("operation cancelled")
-			default:
-			}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("operation cancelled")
+		default:
 		}
-
 		// Проверяем циклы
 		if visitedInCurrentPath[node] {
 			return nil
