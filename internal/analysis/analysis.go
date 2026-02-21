@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"go-ast-processor-cli/internal/analysis/converter"
-	"go-ast-processor-cli/internal/analysis/xtools"
+	"go-ast-processor-cli/internal/analysis/funcgraph"
+	"go-ast-processor-cli/internal/analysis/pkgproc"
 	"go-ast-processor-cli/internal/models"
 	"golang.org/x/mod/modfile"
 	"log/slog"
@@ -19,7 +20,7 @@ type Analyzer interface {
 
 type defaultAnalyzer struct {
 	modulePathResolver ModulePathResolverFunc
-	graphBuilder       xtools.GraphBuilder
+	vulnPkgsFinder     pkgproc.VulnPkgsFinder
 	converter          converter.GraphConverter
 	logger             *slog.Logger
 }
@@ -27,12 +28,12 @@ type defaultAnalyzer struct {
 func NewAnalyzer(
 	logger *slog.Logger,
 	resolver ModulePathResolverFunc,
-	graphBuilder xtools.GraphBuilder,
+	vulnPkgsFinder pkgproc.VulnPkgsFinder,
 	converter converter.GraphConverter) Analyzer {
 	return &defaultAnalyzer{
 		modulePathResolver: resolver,
-		graphBuilder:       graphBuilder,
 		logger:             logger,
+		vulnPkgsFinder:     vulnPkgsFinder,
 		converter:          converter,
 	}
 }
@@ -52,22 +53,71 @@ func (a defaultAnalyzer) Analyze(ctx context.Context, projectPath string, vulnFu
 		return nil, fmt.Errorf("operation cancelled: %w", err)
 	}
 
-	fset, graph, err := a.graphBuilder.Build(ctx, projectPath, modulePath, vulnFuncInfo)
+	pkgsPaths, err := a.vulnPkgsFinder.FindVulnPackages(ctx, projectPath, vulnFuncInfo.FileName, modulePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build graph: %w", err)
+		return nil, fmt.Errorf("error while finding vulnerable packages: %w", err)
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
+	a.logger.Info("building SSA program")
+	prog, fset, err := funcgraph.BuildProgram(pkgsPaths, projectPath)
+	if err != nil {
+		return nil, fmt.Errorf("error while building program: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context cancelled: %w", err)
+	}
+	a.logger.Info("SSA program was built")
+
+	vtaParams := funcgraph.GraphParams{
+		ModulePath:  modulePath,
+		PkgsPaths:   pkgsPaths,
+		ProjectPath: projectPath,
+		Fset:        fset,
+		Program:     prog,
+	}
+	fset, chaGraph, err := funcgraph.NewGraphBuilder(a.logger).Build(ctx, vtaParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build call graph using vta algorithm: %w", err)
 	}
 	duration := time.Since(startTime)
-	a.logger.Info("Analysis completed",
-		"total_nodes", len(graph.Nodes),
+	a.logger.Info("vta analysis completed",
+		"total_nodes", len(chaGraph.Nodes),
 		"duration", duration)
 
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("operation cancelled: %w", err)
 	}
-
-	tree, err := a.converter.Convert(ctx, graph, fset, modulePath, vulnFuncInfo)
+	targetFunc := funcgraph.FindTargetFunction(chaGraph, fset, vulnFuncInfo)
+	callers := funcgraph.CollectCallers(chaGraph, targetFunc)
+	callers[targetFunc] = true
+	ptaStartTime := time.Now()
+	ptaParams := funcgraph.GraphParams{
+		ModulePath:  modulePath,
+		PkgsPaths:   pkgsPaths,
+		ProjectPath: projectPath,
+		Fset:        fset,
+		Program:     prog,
+		FunctionSet: nil, // не ограничиваем
+		Filter:      nil,
+	}
+	fset, ptaGraph, err := funcgraph.NewGraphBuilder(a.logger, funcgraph.WithStrategy(&funcgraph.PTAStrategy{Logger: a.logger})).Build(ctx, ptaParams)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert google/x/tools vta graph: %w", err)
+		return nil, fmt.Errorf("failed to build call graph using pta algorithm: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("operation cancelled: %w", err)
+	}
+	duration = time.Since(ptaStartTime)
+	a.logger.Info("pta analysis completed",
+		"total_nodes", len(chaGraph.Nodes),
+		"duration", duration)
+
+	tree, err := a.converter.Convert(ctx, ptaGraph, fset, modulePath, vulnFuncInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert google/x/tools pta funcgraph: %w", err)
 	}
 	return tree, nil
 }

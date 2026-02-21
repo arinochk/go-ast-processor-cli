@@ -30,7 +30,7 @@ func NewApp() *App {
 	ssaBuilder := xtools.NewSsaBuilder(logger, vulnPkgsFinder)
 
 	graphFilter := xtools.NewGraphFilter()
-	graphBuilder := xtools.NewGraphBuilder(logger, ssaBuilder, graphFilter)
+	_ = xtools.NewGraphBuilder(logger, ssaBuilder, graphFilter)
 
 	nodeFilter := converter.NewNodeFilter()
 	nodeIdGenerator := converter.NewNodeIDGenerator()
@@ -43,7 +43,7 @@ func NewApp() *App {
 
 	graphConverter := converter.NewGraphConverter(logger, allNodesFinder, connectionBuilder)
 
-	analyzer := analysis.NewAnalyzer(logger, modulePathResolver, graphBuilder, graphConverter)
+	analyzer := analysis.NewAnalyzer(logger, modulePathResolver, vulnPkgsFinder, graphConverter)
 	return &App{
 		inputProcessor:  cmd.NewCliProcessor(logger),
 		outputProcessor: cmd.NewOuputProcessor(),

@@ -40,7 +40,7 @@ func (c defaultGraphConverter) Convert(
 	vulnFuncInfo *models.VulnFuncInfo,
 ) (*models.Tree, error) {
 	if callGraph == nil {
-		return nil, fmt.Errorf("call graph is nil")
+		return nil, fmt.Errorf("call funcgraph is nil")
 	}
 
 	if err := ctx.Err(); err != nil {
@@ -76,7 +76,7 @@ func (c defaultGraphConverter) getTargetVulnNode(nodeMap map[string]*models.Tree
 	key := fmt.Sprintf(models.KeyForNodeStructure, vulnFuncInfo.FuncName, vulnFuncInfo.FileName, vulnFuncInfo.Line)
 	target, ok := nodeMap[key]
 	if !ok {
-		return "", nil, fmt.Errorf("vulnerable function with key %s not found in call graph", key)
+		return "", nil, fmt.Errorf("vulnerable function with key %s not found in call funcgraph", key)
 	}
 	return key, target, nil
 }

@@ -1,4 +1,4 @@
-package callgraph
+package funcgraph
 
 import (
 	"go-ast-processor-cli/internal/models"
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func buildProgram(pkgsPaths []string, projectPath string) (*ssa.Program, *token.FileSet, error) {
+func BuildProgram(pkgsPaths []string, projectPath string) (*ssa.Program, *token.FileSet, error) {
 	cfg := &packages.Config{
 		Mode:  packages.LoadAllSyntax,
 		Dir:   projectPath,
@@ -53,18 +53,23 @@ func filterGraph(cg *callgraph.Graph, modulePath string) *callgraph.Graph {
 	return filtered
 }
 
-func FindTargetFunction(prog *ssa.Program, info *models.VulnFuncInfo) *ssa.Function {
-	for fn := range ssautil.AllFunctions(prog) {
+func FindTargetFunction(cg *callgraph.Graph, fset *token.FileSet, info *models.VulnFuncInfo) *ssa.Function {
+	for _, node := range cg.Nodes {
+		if node.Func == nil {
+			continue
+		}
+
+		fn := node.Func
 		if fn.Pkg != nil && fn.Pkg.Pkg != nil && fn.Name() == info.FuncName {
-			pos := prog.Fset.Position(fn.Pos())
+			pos := fset.Position(fn.Pos())
 			if strings.HasSuffix(pos.Filename, info.FileName) {
 				return fn
 			}
 		}
 	}
+
 	return nil
 }
-
 func CollectCallers(cg *callgraph.Graph, target *ssa.Function) map[*ssa.Function]bool {
 	inEdges := make(map[*ssa.Function][]*ssa.Function)
 	for _, node := range cg.Nodes {

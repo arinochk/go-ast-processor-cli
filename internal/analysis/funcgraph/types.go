@@ -1,4 +1,4 @@
-package callgraph
+package funcgraph
 
 import (
 	"context"
@@ -14,11 +14,11 @@ type GraphParams struct {
 	ProjectPath string
 	ModulePath  string
 	FuncInfo    *models.VulnFuncInfo
-
-	Program *ssa.Program
-	Fset    *token.FileSet
+	Program     *ssa.Program
+	Fset        *token.FileSet
 
 	FunctionSet map[*ssa.Function]bool
+	Filter      func(*ssa.Function) bool
 }
 
 type GraphBuilder interface {
