@@ -6,7 +6,6 @@ import (
 	"go-ast-processor-cli/internal/analysis"
 	"go-ast-processor-cli/internal/analysis/converter"
 	"go-ast-processor-cli/internal/analysis/pkgproc"
-	"go-ast-processor-cli/internal/analysis/xtools"
 	"go-ast-processor-cli/internal/cmd"
 	"go-ast-processor-cli/internal/pathtraversal"
 	"log/slog"
@@ -27,10 +26,6 @@ func NewApp() *App {
 	allProjectPkgsFinder := pkgproc.NewAllProjectPkgsFinder(logger)
 	pkgDependenciesFinder := pkgproc.NewPkgDependenciesFinder(logger)
 	vulnPkgsFinder := pkgproc.NewVulnPkgsFinder(logger, pkgByFilePathFinder, allProjectPkgsFinder, pkgDependenciesFinder)
-	ssaBuilder := xtools.NewSsaBuilder(logger, vulnPkgsFinder)
-
-	graphFilter := xtools.NewGraphFilter()
-	_ = xtools.NewGraphBuilder(logger, ssaBuilder, graphFilter)
 
 	nodeFilter := converter.NewNodeFilter()
 	nodeIdGenerator := converter.NewNodeIDGenerator()
