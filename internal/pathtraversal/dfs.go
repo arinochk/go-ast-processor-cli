@@ -41,7 +41,7 @@ func (f *PathFuncFinderImpl) FindPath(
 				slog.Info(fmt.Sprintf("Found path function: %s Key: %s", vulnFuncInfo.FuncName, k))
 			}
 		}
-		return nil, fmt.Errorf("function not found in call graph")
+		return nil, fmt.Errorf("function not found in call funcgraph")
 	}
 
 	allPaths := make([][]*models.TreeNode, 0)

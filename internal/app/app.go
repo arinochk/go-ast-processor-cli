@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-ast-processor-cli/internal/analysis"
 	"go-ast-processor-cli/internal/analysis/converter"
+	"go-ast-processor-cli/internal/analysis/pkgproc"
 	"go-ast-processor-cli/internal/analysis/xtools"
 	"go-ast-processor-cli/internal/cmd"
 	"go-ast-processor-cli/internal/pathtraversal"
@@ -22,14 +23,14 @@ func NewApp() *App {
 	logger := setupLogger()
 	modulePathResolver := analysis.NewModuleResolver(logger)
 
-	pkgByFilePathFinder := xtools.NewPkgByFilePathFinder(logger)
-	allProjectPkgsFinder := xtools.NewAllProjectPkgsFinder(logger)
-	pkgDependenciesFinder := xtools.NewPkgDependenciesFinder(logger)
-	vulnPkgsFinder := xtools.NewVulnPkgsFinder(logger, pkgByFilePathFinder, allProjectPkgsFinder, pkgDependenciesFinder)
+	pkgByFilePathFinder := pkgproc.NewPkgByFilePathFinder(logger)
+	allProjectPkgsFinder := pkgproc.NewAllProjectPkgsFinder(logger)
+	pkgDependenciesFinder := pkgproc.NewPkgDependenciesFinder(logger)
+	vulnPkgsFinder := pkgproc.NewVulnPkgsFinder(logger, pkgByFilePathFinder, allProjectPkgsFinder, pkgDependenciesFinder)
 	ssaBuilder := xtools.NewSsaBuilder(logger, vulnPkgsFinder)
 
 	graphFilter := xtools.NewGraphFilter()
-	graphBuilder := xtools.NewGraphBuilder(logger, ssaBuilder, graphFilter)
+	_ = xtools.NewGraphBuilder(logger, ssaBuilder, graphFilter)
 
 	nodeFilter := converter.NewNodeFilter()
 	nodeIdGenerator := converter.NewNodeIDGenerator()
@@ -42,7 +43,7 @@ func NewApp() *App {
 
 	graphConverter := converter.NewGraphConverter(logger, allNodesFinder, connectionBuilder)
 
-	analyzer := analysis.NewAnalyzer(logger, modulePathResolver, graphBuilder, graphConverter)
+	analyzer := analysis.NewAnalyzer(logger, modulePathResolver, vulnPkgsFinder, graphConverter)
 	return &App{
 		inputProcessor:  cmd.NewCliProcessor(logger),
 		outputProcessor: cmd.NewOuputProcessor(),

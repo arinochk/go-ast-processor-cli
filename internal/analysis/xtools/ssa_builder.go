@@ -3,6 +3,7 @@ package xtools
 import (
 	"context"
 	"fmt"
+	"go-ast-processor-cli/internal/analysis/pkgproc"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
@@ -16,11 +17,11 @@ type SsaBuilder interface {
 
 type defaultSsaBuilder struct {
 	logger         *slog.Logger
-	vulnPkgsFinder VulnPkgsFinder
+	vulnPkgsFinder pkgproc.VulnPkgsFinder
 }
 
 func NewSsaBuilder(logger *slog.Logger,
-	vulnPkgsFinder VulnPkgsFinder) SsaBuilder {
+	vulnPkgsFinder pkgproc.VulnPkgsFinder) SsaBuilder {
 	return &defaultSsaBuilder{
 		logger:         logger,
 		vulnPkgsFinder: vulnPkgsFinder,
@@ -32,7 +33,7 @@ func (b *defaultSsaBuilder) build(ctx context.Context, projectPath, filePath, mo
 		"project", projectPath, "file", filePath)
 	start := time.Now()
 
-	pkgsPaths, err := b.vulnPkgsFinder.findVulnPackages(ctx, projectPath, filePath, modulePath)
+	pkgsPaths, err := b.vulnPkgsFinder.FindVulnPackages(ctx, projectPath, filePath, modulePath)
 	if err != nil {
 		return nil, fmt.Errorf("error while finding vulnerable packages: %w", err)
 	}

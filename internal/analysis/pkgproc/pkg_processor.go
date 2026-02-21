@@ -1,4 +1,4 @@
-package xtools
+package pkgproc
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 )
 
 type VulnPkgsFinder interface {
-	findVulnPackages(ctx context.Context, projectPath, filePath, modulePath string) ([]string, error)
+	FindVulnPackages(ctx context.Context, projectPath, filePath, modulePath string) ([]string, error)
 }
 
 type vulnPkgsFinder struct {
@@ -38,7 +38,7 @@ func NewVulnPkgsFinder(
 	}
 }
 
-func (finder vulnPkgsFinder) findVulnPackages(ctx context.Context, projectPath, filePath, modulePath string) ([]string, error) {
+func (finder vulnPkgsFinder) FindVulnPackages(ctx context.Context, projectPath, filePath, modulePath string) ([]string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("context cancelled: %w", err)
 	}
@@ -55,7 +55,7 @@ func (finder vulnPkgsFinder) findVulnPackages(ctx context.Context, projectPath, 
 	}
 	finder.logger.Info("found total packages", "count", len(allPkgs))
 
-	const maxDepth = 10
+	const maxDepth = 5
 	deps, err := finder.pkgDependenciesFinder.getAllPkgDependencies(ctx, projectPath, targetPkg, allPkgs, maxDepth)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all dependencies: %w", err)
@@ -208,9 +208,9 @@ func (pkgDependenciesFinder pkgDependenciesFinder) getAllPkgDependencies(
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
-		if current.depth > maxDepth {
-			continue
-		}
+		//if current.depth > maxDepth {
+		//	continue
+		//}
 		visited[current.pkg] = true
 		for _, dep := range dependencyGrap[current.pkg] {
 			if !visited[dep] {

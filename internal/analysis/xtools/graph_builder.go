@@ -53,22 +53,22 @@ func (graphBuilder graphBuilder) Build(
 		return nil, nil, fmt.Errorf("context cancelled: %w", err)
 	}
 
-	graphBuilder.logger.Info("Building CHA call graph")
+	graphBuilder.logger.Info("Building CHA call funcgraph")
 	chaGraph := cha.CallGraph(prog)
 	if err := ctx.Err(); err != nil {
 		return nil, nil, fmt.Errorf("context cancelled: %w", err)
 	}
 
-	graphBuilder.logger.Info("CHA call graph has been built. Building Vta graph")
+	graphBuilder.logger.Info("CHA call funcgraph has been built. Building Vta funcgraph")
 	vtaGraph := vta.CallGraph(ssautil.AllFunctions(prog), chaGraph)
 
 	if err := ctx.Err(); err != nil {
 		return nil, nil, fmt.Errorf("context cancelled: %w", err)
 	}
 
-	graphBuilder.logger.Info("VTA graph has been built.", "count of nodes", len(vtaGraph.Nodes))
+	graphBuilder.logger.Info("VTA funcgraph has been built.", "count of nodes", len(vtaGraph.Nodes))
 	filteredGraph := graphBuilder.graphFilter(vtaGraph, modulePath)
-	graphBuilder.logger.Info("Filtered VTA graph has been built.", "count of nodes", len(filteredGraph.Nodes))
+	graphBuilder.logger.Info("Filtered VTA funcgraph has been built.", "count of nodes", len(filteredGraph.Nodes))
 	return prog.Fset, filteredGraph, nil
 }
 
