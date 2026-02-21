@@ -3,6 +3,8 @@ package funcgraph
 import (
 	"context"
 	"fmt"
+	"github.com/awslabs/ar-go-tools/analysis/config"
+	"github.com/awslabs/ar-go-tools/analysis/ptr"
 	"go/token"
 	"golang.org/x/tools/go/callgraph"
 	"golang.org/x/tools/go/ssa"
@@ -19,23 +21,31 @@ func (s *PTAStrategy) Build(ctx context.Context, params GraphParams) (*token.Fil
 	}
 	s.Logger.Info("Scope packages for Argot analysis", "count", len(params.PkgsPaths), "packages", params.PkgsPaths)
 
-	if params.State == nil {
-		return nil, nil, fmt.Errorf("PTAStrategy requires State in GraphParams")
-	}
-	state := params.State
-	prog := state.Program
-	fset := prog.Fset
+	var prog *ssa.Program
+	var fset *token.FileSet
+	var err error
 
-	// Определяем фильтр: если передан FunctionSet, фильтр не нужен.
-	// Иначе используем явно заданный Filter (может быть nil).
-	var filter func(*ssa.Function) bool
-	if params.FunctionSet != nil {
-		filter = nil
+	if params.Program != nil {
+		prog = params.Program
+		fset = params.Fset
 	} else {
-		filter = params.Filter
+		prog, fset, err = BuildProgram(params.PkgsPaths, params.ProjectPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to load program: %w", err)
+		}
 	}
 
-	ptrResult, err := ptr.PointerAnalysis(state, filter, params.FunctionSet)
+	cfg := config.NewDefault()
+
+	scopeSet := make(map[string]bool)
+	for _, p := range params.PkgsPaths {
+		scopeSet[p] = true
+	}
+	filter := func(fn *ssa.Function) bool {
+		return fn.Pkg != nil && fn.Pkg.Pkg != nil && scopeSet[fn.Pkg.Pkg.Path()]
+	}
+
+	ptrResult, err := ptr.DoPointerAnalysis(cfg, prog, filter, params.FunctionSet)
 	if err != nil {
 		return nil, nil, fmt.Errorf("pointer analysis failed: %w", err)
 	}

@@ -18,7 +18,6 @@ type GraphParams struct {
 	Fset        *token.FileSet
 
 	FunctionSet map[*ssa.Function]bool
-	Filter      func(*ssa.Function) bool
 }
 
 type GraphBuilder interface {

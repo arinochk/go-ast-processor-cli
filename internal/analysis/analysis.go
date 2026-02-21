@@ -100,8 +100,7 @@ func (a defaultAnalyzer) Analyze(ctx context.Context, projectPath string, vulnFu
 		ProjectPath: projectPath,
 		Fset:        fset,
 		Program:     prog,
-		FunctionSet: nil, // не ограничиваем
-		Filter:      nil,
+		FunctionSet: callers,
 	}
 	fset, ptaGraph, err := funcgraph.NewGraphBuilder(a.logger, funcgraph.WithStrategy(&funcgraph.PTAStrategy{Logger: a.logger})).Build(ctx, ptaParams)
 	if err != nil {
